@@ -9,7 +9,7 @@ import pandas as pd
 from sklearn.metrics import pairwise_distances
 
     
-def evaluate(all_df, case_df, gallery='all'):
+def evaluate(all_df, case_df, gallery='all', threshold=None):
     # Get representations of just the gallery set
     gallery_set_representations = all_df.representations.values
     gallery_set_representations = np.stack(gallery_set_representations)
@@ -19,7 +19,7 @@ def evaluate(all_df, case_df, gallery='all'):
     case_representations = np.stack([case_representations])
 
     # Actually get distances
-    def eval(gallery_df, gallery_set_representations, test_set_representations):
+    def eval(gallery_df, gallery_set_representations, test_set_representations, threshold=None):
         def reshape_representations(representations):
             representations = [
                 np.array([representations[j][i] for j in range(len(representations))]) for i in
@@ -34,16 +34,38 @@ def evaluate(all_df, case_df, gallery='all'):
         dists = np.stack(
             [pairwise_distances(test_set_representations[model_tta], gallery_set_representations[model_tta], 'cosine')
              for model_tta in range(len(test_set_representations))], axis=1)
+
+        # average the distances over all models
         mean_dists = np.mean(dists, axis=1)
+
         # Condense the model-axis to end up with 1 vote per image, rather than 1 vote per model per image
-        ranked_dist_index = np.argsort(mean_dists, axis=1)  # average the distances over all models
-        ranked_mean_dists = np.take_along_axis(mean_dists, ranked_dist_index, axis=1)
-        ranked_img_ids = gallery_df["img_name"].values[ranked_dist_index]
+        # It was designed for testing a batch of images, however, we only support analysis of one image
+        # in the service.
+        # mean_dists = [[mean_dist of test_image_1], [mean_dist of test_image_2], [mean_dist of test_image_n]]
+        # len(mean_dist of test_image_1) == gallery size
+        if threshold != None:
+            print('filter {}'.format(threshold))
+            filtered_idx_list = [filter_by_distance(mean_dist, threshold) for mean_dist in mean_dists]
+            ranked_mean_dists = [mean_dist[filtered_idx] for mean_dist, filtered_idx in
+                                 zip(mean_dists, filtered_idx_list)]
+            ranked_img_ids = [gallery_df["img_name"].values[filtered_idx] for filtered_idx in filtered_idx_list]
+        else:
+            print('No filter {}'.format(threshold))
+            ranked_dist_index = np.argsort(mean_dists, axis=1)
+            ranked_mean_dists = np.take_along_axis(mean_dists, ranked_dist_index, axis=1)
+            ranked_img_ids = gallery_df["img_name"].values[ranked_dist_index]
 
         return ranked_mean_dists, ranked_img_ids
 
     # return ranked_mean_dists, ranked_img_ids
-    return eval(all_df, gallery_set_representations, case_representations)
+    return eval(all_df, gallery_set_representations, case_representations, threshold)
+
+
+def filter_by_distance(distances, thresh=0.1):
+    # this function can be used to filter out the images with distance below the threshold
+    idx, = np.where(distances > thresh)
+    return idx[np.argsort(distances[idx])]
+
 
 def get_first_synds(ranked_mean_dists_list, ranked_img_ids_list, images_synds_dict, verbose=False):
     # This removes all duplicate occurrences except for the first one.. for each test image
@@ -115,19 +137,24 @@ def get_first_genes(ranked_mean_dists_list, ranked_img_ids_list, image_genes_dic
     return img_genes_results_list, img_dists_results_list, img_image_results_list
 
 
-def get_first_subject(ranked_synd_ids, ranked_mean_dists, ranked_img_ids, ranked_subject_ids, verbose=False):
+def get_first_subject(ranked_mean_dists, ranked_img_ids, image_genes_dict, verbose=False):
     # This removes all duplicate occurrences except for the first one.. for each test image
-    synds_all = np.array([ranked_synd_ids[i][np.sort(np.unique(ranked_subject_ids[i], return_index=True)[1])] for i in
-                          range(len(ranked_subject_ids))])  # Expected shape: [num_images_test, num_images_gallery]
-    dists_all = np.array([ranked_mean_dists[i][np.sort(np.unique(ranked_subject_ids[i], return_index=True)[1])] for i in
-                          range(len(ranked_subject_ids))])  # Expected shape: [num_images_test, num_images_gallery]
-    imgs_all = np.array([ranked_img_ids[i][np.sort(np.unique(ranked_subject_ids[i], return_index=True)[1])] for i in
-                          range(len(ranked_subject_ids))])  # Expected shape: [num_images_test, num_images_gallery]
-    subjects_all = np.array([ranked_subject_ids[i][np.sort(np.unique(ranked_subject_ids[i], return_index=True)[1])] for i in
-                          range(len(ranked_subject_ids))])  # Expected shape: [num_images_test, num_images_gallery]
+    #synds_all = np.array([ranked_synd_ids[i][np.sort(np.unique(ranked_subject_ids[i], return_index=True)[1])] for i in
+    #                      range(len(ranked_subject_ids))])  # Expected shape: [num_images_test, num_images_gallery]
+    dists_all = []
+    subjects_all = []
+    imgs_all = []
+    for ranked_img_ids_list, ranked_mean_dists_list in zip(ranked_img_ids, ranked_mean_dists):
+        # ranked subject list
+        ranked_subjects_list = np.array([image_genes_dict[int(image_id)][0]['patient_id'] for image_id in ranked_img_ids_list])
 
+        # obtain idx of the unique subject
+        subject_idx = np.sort(np.unique(ranked_subjects_list, return_index=True)[1])
+        subjects_all.append(ranked_subjects_list[subject_idx])
+        dists_all.append(ranked_mean_dists_list[subject_idx])
+        imgs_all.append(ranked_img_ids_list[subject_idx])
 
-    return synds_all, dists_all, imgs_all, subjects_all
+    return subjects_all, dists_all, imgs_all
 
 
 def prep_csv(df, is_pickle=False):
@@ -215,6 +242,27 @@ def format_gene_json(results, genes_metadata_dict, images_dict, case_id=''):
     return output_list
 
 
+def format_subject_json(results, synds_metadata_dict, images_dict, case_id=''):
+    subjects = results[0][0][:100]
+    dists = results[1][0][:100]
+    img_ids = results[2][0][:100]
+
+    output_list = []
+    for subject, dist, image_id in zip(subjects, dists, img_ids):
+        output = {'subject_id': subject,
+                  'gene_name': images_dict[int(image_id)][0]['gene_name'],
+                  'gene_entrez_id': images_dict[int(image_id)][0]['gene_entrez_id'],
+                  'distance': round(float(dist), 3),
+                  'gestalt_score': round(float(dist), 3),
+                  'image_id': image_id,
+                  'syndrome_name': images_dict[int(image_id)][0]['disorder_names'],
+                  'omim_id': images_dict[int(image_id)][0]['omim_ids']
+        }
+        output_list.append(output)
+
+    return output_list
+
+
 def save_to_json(results, output_dir, output_file):
     output_filename = os.path.join(output_dir, output_file)
     with open(output_filename, "w") as f:
@@ -250,8 +298,9 @@ def predict(test_df, _gallery_df, images_synds_dict, images_genes_dict, genes_me
     else:
         n = int(args.top_n)
 
-    all_ranks = evaluate(_gallery_df, case_df, "all")
-    all_ranks = np.array(all_ranks)
+    all_ranks = evaluate(_gallery_df, case_df, "all", threshold=0.4)
+    # do we need np array?
+    #all_ranks = np.array(all_ranks)
 
     evaluate_finished_time = time.time()
 
@@ -264,10 +313,17 @@ def predict(test_df, _gallery_df, images_synds_dict, images_genes_dict, genes_me
     first_gene_ranks = get_first_genes(*all_ranks, images_genes_dict)
     first_gene_ranks = np.array(first_gene_ranks)
     get_genes_time = time.time()
+
+    # Get all synd_ids, dists, img_ids, subject_ids per subject in gallery
+    first_subject_ranks = get_first_subject(*all_ranks, images_genes_dict)
+    first_subject_ranks = np.array(first_subject_ranks)
+    get_genes_time = time.time()
+
     case_id = 1
 
     synd_output_list = format_syndrome_json(first_synd_ranks[:, :, :n], synds_metadata, images_synds_dict, case_id)
     gene_output_list = format_gene_json(first_gene_ranks[:, :, :n], genes_metadata, images_genes_dict, case_id)
+    subject_output_list = format_subject_json(first_subject_ranks[:, :, :n], genes_metadata, images_genes_dict, case_id)
 
     output_finished_time = time.time()
 
@@ -280,6 +336,7 @@ def predict(test_df, _gallery_df, images_synds_dict, images_genes_dict, genes_me
     output = {"model_version": "v1.0.9",
               "gallery_version": "26.05.2024",
               "suggested_genes_list": gene_output_list,
-              "suggested_syndromes_list": synd_output_list}
+              "suggested_syndromes_list": synd_output_list,
+              "suggested_patients_list": subject_output_list}
     return output
 
