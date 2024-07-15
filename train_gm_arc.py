@@ -12,7 +12,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from lib.datasets.utils import get_train_and_val_datasets
 from lib.models.my_arcface import MyArcFace
-from lib.utils import seed_worker
+from lib.utils_functions import seed_worker
 
 
 # To parse command line arguments
@@ -290,7 +290,7 @@ def main():
     # Create and get the training and validation datasets
     dataset_train, dataset_val = get_train_and_val_datasets(args.dataset, args.dataset_type, args.dataset_version,
                                                             args.img_size, args.in_channels, args.data_dir,
-                                                            img_postfix='_rot_aligned')
+                                                            img_postfix='_aligned')
 
     # Get the number of classes from the dataset
     args.num_classes = dataset_train.get_num_classes()

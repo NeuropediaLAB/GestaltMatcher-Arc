@@ -9,7 +9,7 @@ from torch.utils.data import Dataset
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 
-from lib.utils import normalize, resize_with_ratio_squared, shrink_zoom_augment
+from lib.utils_functions import normalize, resize_with_ratio_squared, shrink_zoom_augment
 
 
 class GestaltMatcherDataset(Dataset):
