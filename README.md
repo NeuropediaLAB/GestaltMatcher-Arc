@@ -3,6 +3,11 @@ This repository contains all the code for our GestaltMatcher service.
 This repo also contains snippets of code from insightface (https://github.com/deepinsight/insightface); both from their 
 alignment process and their RetinaFace detector.
 
+<p><strong>There are two parts in this repo:
+
+1. [GestaltMatcher REST api](#gestaltmatcher-rest-api) to run the prediction. You don't have to train the models.
+1. [Step-by-step setup](#step-by-step-setup), from preprocessing, training to evaluation.</strong></p>
+
 The concept is to first acquire the aligned face, followed by encoding it, and lastly comparing the encoding to a set
 of gallery encodings. The expected in- and output of each stage is described after `Environment`-section.
 
@@ -19,19 +24,19 @@ Please contact us to obtain the following files and store them in the correspond
 
 Save the following files in ./saved_models/
 1. Resnet50_Final.pth (for the face alignment)
-2. s1_glint360k_r50_512d_gmdb__v1.0.3_bs64_size112_channels3_last_model.pth (model 1 for the encoding)
-3. s2_glint360k_r100_512d_gmdb__v1.0.3_bs128_size112_channels3_last_model.pth (model 2 for the encoding)
+2. s1_glint360k_r50_512d_gmdb__v1.1.0_bs64_size112_channels3_last_model.pth (model 1 for the encoding)
+3. s2_glint360k_r100_512d_gmdb__v1.1.0_bs128_size112_channels3_last_model.pth (model 2 for the encoding)
 4. glint360k_r100.onnx (model 3 for the encoding)
 
 **Metadata**
 
 Save the following file in ./data/
-1. image_gene_and_syndrome_metadata_v1.0.3.p (image metadata)
+1. image_gene_and_syndrome_metadata_v1.1.0.p (image metadata)
 
 **Encodings**
 
 Save the following file in ./data/gallery_encodings/
-1. GMDB_gallery_encodings_v1.0.3.pkl (image encodings)
+1. GMDB_gallery_encodings_v1.1.0.pkl (image encodings)
 
 **Config file**
 
@@ -144,9 +149,16 @@ A syndrome list sorted by the distance in ascending order.
         },...
     ]
 ```
+## Step-by-step setup
+### Environment
+Please use python version 3.8 or (3.7+), and the package listed in requirements.txt.
 
-## Environment
-Please use python version 3.7+, and the package listed in requirements.txt.
+<p><strong>The following setup is verified in the following environments:
+
+* Window 11
+* RTX4090
+* cuda 11.8
+* pytorch 2.3.1</strong></p>
 
 ```
 python3 -m venv env_gm
@@ -157,27 +169,31 @@ pip install -r requirements.txt
 If you would like to train and evaluate with GPU, please remember to install cuda in your system.
 If you don't have GPU, please choose the CPU option (`--no_cuda`) in the following section.
 
-Follow these instructions (https://developer.nvidia.com/cuda-downloads ) to properly install CUDA.
-Follow the necessary instructions (https://pytorch.org/get-started/locally/ ) to properly install PyTorch, you might still need additional dependencies (e.g. Numpy).
+Follow these instructions (https://developer.nvidia.com/cuda-downloads) to properly install CUDA.
+
+Follow the necessary instructions (https://pytorch.org/get-started/locally/) to properly install PyTorch, you might still need additional dependencies (e.g. Numpy).
 Using the following command should work for most using the `conda` virtual env.
-```conda install pytorch torchvision cudatoolkit=10.2 -c pytorch```
+```conda install pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia```
 
 If any problems occur when installing the packages in `requirements.txt`, the most important packages are:
 ```
-numpy
-pandas
-pytorch=1.9.0
-torchvision=0.10.0
-tensorboard
-opencv
-matplotlib
-scikit-image
-scikit-learn
-onnx2torch
-albumentations
+numpy==1.24.4
+pandas==2.0.3
+torch==2.3.1
+torchaudio==2.3.1
+torchvision==0.18.1
+tensorboard==2.14.0
+opencv-python-headless==4.10.0.84
+matplotlib==3.7.5
+scikit-image==0.21.0
+scikit-learn==1.3.2
+onnx==1.16.1
+onnx2torch==1.4.1
+albumentations==1.2.1
+pillow==10.4.0
 ```
 
-## Crop and align faces
+### Crop and align faces
 In order to get aligned images, you have to run `crop_align.py`. It is possible to either crop and align a single image,
 multiple images in a list or a directory of images.\
 With `python crop_align.py` you will crop and align all images in `--data` (default: `./data/cases`) and save them to 
@@ -188,7 +204,47 @@ The face cropper requires the model-weights "Resnet50_Final.pth". Remember to do
 [Google Docs](https://drive.google.com/open?id=1oZRSG0ZegbVkVwUd8wUIQx8W7yfZ_ki1) with pw: fstq \
 If you don't have GPU, please use `--no_cuda` to run on cpu mode.
 
-## Encode photos 
+```
+# crop and align the original v1.1.0 to 
+python .\crop_align.py --data ..\data\GestaltMatcherDB\v1.1.0\gmdb_images --save_dir .\data\GestaltMatcherDB\v1.1.0\gmdb_align
+```
+
+### Train models
+The training of GestaltMatcher-Arc needs to be run twice:
+* a) for the resnet-50 mix model, and
+* b) for the resnet-100 model.
+For these also require the pretrained ArcFace models from insightface: `glint360k_r50.onnx` and `glint360k_r100.onnx` to 
+be in the directory `./saved_models`. \
+These models can be downloaded here: https://github.com/deepinsight/insightface/tree/master/model_zoo 
+
+To reproduce our Gestalt Matcher model listed in the table by training from scratch, use:
+```
+python train_gm_arc.py --paper_model a --epochs 50 --session 1 --dataset gmdb --in_channels 3 --img_size 112 --use_tensorboard --local --data_dir ../data --dataset_version v1.1.0 
+python train_gm_arc.py --paper_model b --epochs 50 --session 2 --dataset gmdb --in_channels 3 --img_size 112 --use_tensorboard --local --data_dir ../data --dataset_version v1.1.0 
+```
+
+You may choose whatever seed and session you find useful.
+`--seed 11` was used to obtain these results, others have not been tested.
+
+Using the argument `--use_tensorboard` allows you to track your models training and validation curves over time.
+
+Training a model without GPU has not been tested.
+
+### Pretrained models
+Due to ethical reasons the pretrained models are not made available publicly. \
+Once access has been granted to GMDB, the pretrained model weights can be requested as well.
+
+### Pretrained models
+Due to ethical reasons the pretrained models are not made available publicly. \
+Once access has been granted to GMDB, the pretrained model weights can be requested as well.
+
+The pretrained models by default are stored in a directory set by `--weight_dir` (default:`./saved_models/`). Further, 
+using the arguments `--model_a_path`, `--model_b_path` and `--model_c_path`, the paths within this directory need to be
+specified (default: uses all supplied model names). \
+When setting any of those to 'None' they will not be included in the ensemble.
+
+
+### Encode photos
 With `python predict.py` you will encode all images in `--data` (default: `./data/cases_align`). This is quite free-form
 and does not need to be a directory, but can also be an image name or list of image names. \
 There are several options w.r.t. saving the encodings. By default, the encoding for each image is saved into a single 
@@ -201,17 +257,38 @@ Lastly, it is possible to save the encodings directly as a pickle of a DataFrame
 `--save_as_pickle`. The `--output_name` then end in `*.pkl` instead. 
 
 For machines without a GPU, please use `--no_cuda`.
+```
+python .\predict.py \
+  --model_a_path s1_glint360k_r50_512d_gmdb__v1.1.0_bs64_size112_channels3_last_model.pth \
+  --model_b_path s2_glint360k_r100_512d_gmdb__v1.1.0_bs128_size112_channels3_last_model.pth \
+  --save_as_pickle \
+  --data ../data/GestaltMatcherDB/v1.1.0/gmdb_align/ \ 
+  --save_dir ./data/gallery_encodings/ \
+  --output_name GMDB_gallery_encodings_v1.1.0.pkl
+```
 
-### Pretrained models
-Due to ethical reasons the pretrained models are not made available publicly. \
-Once access has been granted to GMDB, the pretrained model weights can be requested as well.
+### Evaluate on the whole dataset
+The following result is evaluating the v1.1.0 GMDB dataset.
+```
+python .\evaluate_ensemble.py
 
-The pretrained models by default are stored in a directory set by `--weight_dir` (default:`./saved_models/`). Further, 
-using the arguments `--model_a_path`, `--model_b_path` and `--model_c_path`, the paths within this directory need to be
-specified (default: uses all supplied model names). \
-When setting any of those to 'None' they will not be included in the ensemble.
+===========================================================
+---------   test: Frequent, gallery: Frequent    ----------
+|Test set     |Gallery |Test  |Top-1 |Top-5 |Top-10|Top-30|
+|GMDB-frequent|8794    |882   |42.37 |65.48 |71.07 |83.68 |
+---------       test: Rare, gallery: Rare        ----------
+|Test set     |Gallery |Test  |Top-1 |Top-5 |Top-10|Top-30|
+|GMDB-rare    |922.6   |386.4 |32.61 |47.22 |54.61 |68.57 |
+--------- test: Frequent, gallery: Frequent+Rare ----------
+|Test set     |Gallery |Test  |Top-1 |Top-5 |Top-10|Top-30|
+|GMDB-frequent|9716.6  |882   |42.10 |63.79 |70.49 |81.51 |
+---------   test: Rare, gallery: Frequent+Rare   ----------
+|Test set     |Gallery |Test  |Top-1 |Top-5 |Top-10|Top-30|
+|GMDB-rare    |9716.6  |386.4 |19.74 |31.26 |37.59 |48.58 |
+===========================================================
+```
 
-## Evaluate encodings with gallery encodings
+### Evaluate encodings with gallery encodings
 With `evaluate.py` you can evaluate case encodings using gallery encodings.
 
 There are several ways to load the encodings, either using a single file containing all encodings, or separate encoding-
