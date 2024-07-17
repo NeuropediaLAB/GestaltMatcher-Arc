@@ -50,36 +50,45 @@ def eval(gallery_df, gallery_set_representations, test_set_representations, test
 
 
 # Get syndrome id from index id
-with open('lookup_table_gmdb.txt', 'r') as f:
+with open('lookup_table_gmdb_v1.1.0.txt', 'r') as f:
 # with open('lookup_table_gmdb_v1.0.3.txt', 'r') as f:
     line = f.readlines()[1]
     synd_lookup_table = np.array(json.loads(line))
 
 # Get target labels
-data_path = os.path.join('..', 'data', 'GestaltMatcherDB', 'v1.0.3', 'gmdb_metadata')
-test_df = pd.read_csv(os.path.join(data_path, 'gmdb_frequent_test_images_v1.0.3.csv'))
+data_path = os.path.join('..', 'data', 'GestaltMatcherDB', 'v1.1.0', 'gmdb_metadata')
+test_df = pd.read_csv(os.path.join(data_path, 'gmdb_frequent_test_images_v1.1.0.csv'))
 frequent_test_image_ids = test_df.image_id.values
 
 # Get frequent gallery info
-representation_df = pd.read_csv(os.path.join(data_path, 'gmdb_frequent_gallery_images_v1.0.3.csv'))
+representation_df = pd.read_csv(os.path.join(data_path, 'gmdb_frequent_gallery_images_v1.1.0.csv'))
+
+
+def prep_csv(df, is_pickle=False):
+    df = df.groupby('img_name').agg(lambda x: list(x)).reset_index()
+    if not is_pickle:
+        df.representations = df.representations.apply(lambda x: np.array([json.loads(i) for i in x]))
+    # df.class_conf = df.class_conf.apply(lambda x: [json.loads(i) for i in x])
+    df.img_name = df.img_name.apply(lambda x: x.split('_')[0])
+    return df
 
 # Get all predictions
-representation_df = pd.read_csv("all_encodings.csv", delimiter=";")
-representation_df = representation_df.groupby('img_name').agg(lambda x: list(x)).reset_index()
-
-representation_df.representations = representation_df.representations.apply(lambda x: [json.loads(i) for i in x])
-representation_df.class_conf = representation_df.class_conf.apply(lambda x: [json.loads(i) for i in x])
-representation_df.img_name = representation_df.img_name.apply(lambda x: int(x.split('_')[0]))
+#representation_df = pd.read_csv("all_encodings.csv", delimiter=";")
+encoding_file = os.path.join('data', 'gallery_encodings', 'GMDB_gallery_encodings_v1.1.0.pkl')
+representation_df = prep_csv(pd.read_pickle(encoding_file), is_pickle=True)
 
 # GestaltMatcher test: Frequent, gallery: Frequent
-gallery_df = pd.read_csv(os.path.join(data_path, 'gmdb_frequent_gallery_images_v1.0.3.csv'))
+gallery_df = pd.read_csv(os.path.join(data_path, 'gmdb_frequent_gallery_images_v1.1.0.csv'))
 gallery_df['synd_id'] = np.array([np.where(synd_lookup_table == sid)[0][0] for sid in gallery_df.label])
 # gallery_df['synd_id'] = np.array([sid for sid in gallery_df.label])
 
-test_df = pd.read_csv(os.path.join(data_path, 'gmdb_frequent_test_images_v1.0.3.csv'))
+test_df = pd.read_csv(os.path.join(data_path, 'gmdb_frequent_test_images_v1.1.0.csv'))
 # ids in look up table ..:
 test_synd_ids = np.array([np.where(synd_lookup_table == sid)[0][0] for sid in test_df.label])
 # test_synd_ids = np.array([sid for sid in test_df.label])
+
+gallery_df['image_id'] = gallery_df['image_id'].astype(str)
+test_df['image_id'] = test_df['image_id'].astype(str)
 
 # Get the representations of the relevant sets
 gallery_set_representations = representation_df.representations.values[
@@ -102,11 +111,12 @@ print('|{}|{}    |{}   |{:.2f} |{:.2f} |{:.2f} |{:.2f} |'.format("GMDB-frequent"
 
 # GestaltMatcher test: Rare, gallery: Rare
 # Note: the syndrome ids are not in the lookup table, as they weren't part of the training set
-gallery_df = pd.read_csv(os.path.join(data_path, 'gmdb_rare_gallery_images_v1.0.3.csv'))
+gallery_df = pd.read_csv(os.path.join(data_path, 'gmdb_rare_gallery_images_v1.1.0.csv'))
 gallery_df['synd_id'] = np.array([sid for sid in gallery_df.label])
 
-test_df = pd.read_csv(os.path.join(data_path, 'gmdb_rare_test_images_v1.0.3.csv'))
-
+test_df = pd.read_csv(os.path.join(data_path, 'gmdb_rare_test_images_v1.1.0.csv'))
+gallery_df['image_id'] = gallery_df['image_id'].astype(str)
+test_df['image_id'] = test_df['image_id'].astype(str)
 acc_per_list = []
 num_splits = max(gallery_df.split) + 1
 for test_split in range(num_splits):
@@ -139,13 +149,14 @@ print('|{}|{}   |{} |{:.2f} |{:.2f} |{:.2f} |{:.2f} |'.format("GMDB-rare    ",
 
 # GestaltMatcher test: Frequent, gallery: Frequent+Rare
 # Note: the syndrome ids are not in the lookup table, as they weren't part of the training set
-gallery_df1 = pd.read_csv(os.path.join(data_path, 'gmdb_frequent_gallery_images_v1.0.3.csv'))
-gallery_df2 = pd.read_csv(os.path.join(data_path, 'gmdb_rare_gallery_images_v1.0.3.csv'))
-gallery_df = gallery_df1.append(gallery_df2)
+gallery_df1 = pd.read_csv(os.path.join(data_path, 'gmdb_frequent_gallery_images_v1.1.0.csv'))
+gallery_df2 = pd.read_csv(os.path.join(data_path, 'gmdb_rare_gallery_images_v1.1.0.csv'))
+gallery_df = pd.concat([gallery_df1, gallery_df2])
 gallery_df['synd_id'] = np.array([sid for sid in gallery_df.label])
 
-test_df = pd.read_csv(os.path.join(data_path, 'gmdb_frequent_test_images_v1.0.3.csv'))
-
+test_df = pd.read_csv(os.path.join(data_path, 'gmdb_frequent_test_images_v1.1.0.csv'))
+gallery_df['image_id'] = gallery_df['image_id'].astype(str)
+test_df['image_id'] = test_df['image_id'].astype(str)
 acc_per_list = []
 num_splits = max(gallery_df.dropna().split) + 1
 for test_split in range(int(num_splits)):
@@ -179,13 +190,14 @@ print('|{}|{}  |{}   |{:.2f} |{:.2f} |{:.2f} |{:.2f} |'.format("GMDB-frequent",
 
 
 # GestaltMatcher test: Rare, gallery: Frequent+Rare
-gallery_df1 = pd.read_csv(os.path.join(data_path, 'gmdb_frequent_gallery_images_v1.0.3.csv'))
-gallery_df2 = pd.read_csv(os.path.join(data_path, 'gmdb_rare_gallery_images_v1.0.3.csv'))
-gallery_df = gallery_df1.append(gallery_df2)
+gallery_df1 = pd.read_csv(os.path.join(data_path, 'gmdb_frequent_gallery_images_v1.1.0.csv'))
+gallery_df2 = pd.read_csv(os.path.join(data_path, 'gmdb_rare_gallery_images_v1.1.0.csv'))
+gallery_df = pd.concat([gallery_df1, gallery_df2])
 gallery_df['synd_id'] = np.array([sid for sid in gallery_df.label])
 
-test_df = pd.read_csv(os.path.join(data_path, 'gmdb_rare_test_images_v1.0.3.csv'))
-
+test_df = pd.read_csv(os.path.join(data_path, 'gmdb_rare_test_images_v1.1.0.csv'))
+gallery_df['image_id'] = gallery_df['image_id'].astype(str)
+test_df['image_id'] = test_df['image_id'].astype(str)
 acc_per_list = []
 num_splits = max(gallery_df.dropna().split) + 1
 for test_split in range(int(num_splits)):
