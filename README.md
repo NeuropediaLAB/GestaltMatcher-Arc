@@ -57,7 +57,7 @@ async def predict_endpoint(username: Annotated[str, Depends(get_current_username
 
     aligned_img = face_align_crop(_cropper_model, img, _device)
 
-    encoding = encode(_models, 'cpu', aligned_img, False, False)
+    encoding = encode(_models, 'cpu', aligned_img, True, True)
 
     result = predict(encoding,
                      _gallery_df,
