@@ -48,6 +48,26 @@ Build docker image: `docker build -t gm-api .`
 
 Run and listen the request in localhost:5000:`docker run -p 5000:5000 gm-api`
 
+### Main flow
+Please check the main.py for the main flow of the analysis from loading model, cropping and evaluating.
+```
+# take the predict endpoint for example
+async def predict_endpoint(username: Annotated[str, Depends(get_current_username)], image: Img):
+    img = readb64(image.img)
+
+    aligned_img = face_align_crop(_cropper_model, img, _device)
+
+    encoding = encode(_models, 'cpu', aligned_img, False, False)
+
+    result = predict(encoding,
+                     _gallery_df,
+                     _images_synds_dict,
+                     _images_genes_dict,
+                     _genes_metadata_dict,
+                     _synds_metadata_dict)
+
+```
+
 ### Send request
 You can send a single image or multiple images in a folder to the api via **send_image_api.py**.
 ```
@@ -193,6 +213,19 @@ albumentations==1.2.1
 pillow==10.4.0
 ```
 
+### Pretrained models
+Due to ethical reasons the pretrained models are not made available publicly. \
+Once access has been granted to GMDB, the pretrained model weights can be requested as well.
+
+Save the following files in ./saved_models/
+1. Resnet50_Final.pth (for the face alignment)
+2. glint360k_r50.onnx (base pre-trained model for model a)
+3. glint360k_r100.onnx (base pre-trained model for model b)
+
+Trained models by our group:
+1. s1_glint360k_r50_512d_gmdb__v1.1.0_bs64_size112_channels3_last_model.pth (model 1 for the encoding)
+2. s2_glint360k_r100_512d_gmdb__v1.1.0_bs128_size112_channels3_last_model.pth (model 2 for the encoding)
+
 ### Crop and align faces
 In order to get aligned images, you have to run `crop_align.py`. It is possible to either crop and align a single image,
 multiple images in a list or a directory of images.\
@@ -205,8 +238,11 @@ The face cropper requires the model-weights "Resnet50_Final.pth". Remember to do
 If you don't have GPU, please use `--no_cuda` to run on cpu mode.
 
 ```
-# crop and align the original v1.1.0 to 
+# crop and align the original v1.1.0 
 python .\crop_align.py --data ..\data\GestaltMatcherDB\v1.1.0\gmdb_images --save_dir .\data\GestaltMatcherDB\v1.1.0\gmdb_align
+
+# crop and align the test image and obtained the aligned image in .\demo_images\cdls_demo_alinged.jpg
+python .\crop_align.py --data .\demo_images\cdls_demo.png --save_dir .\demo_images\
 ```
 
 ### Train models
@@ -216,6 +252,11 @@ The training of GestaltMatcher-Arc needs to be run twice:
 For these also require the pretrained ArcFace models from insightface: `glint360k_r50.onnx` and `glint360k_r100.onnx` to 
 be in the directory `./saved_models`. \
 These models can be downloaded here: https://github.com/deepinsight/insightface/tree/master/model_zoo 
+
+The pretrained models by default are stored in a directory set by `--weight_dir` (default:`./saved_models/`). Further, 
+using the arguments `--model_a_path`, `--model_b_path` and `--model_c_path`, the paths within this directory need to be
+specified (default: uses all supplied model names). \
+When setting any of those to 'None' they will not be included in the ensemble.
 
 To reproduce our Gestalt Matcher model listed in the table by training from scratch, use:
 ```
@@ -229,20 +270,6 @@ You may choose whatever seed and session you find useful.
 Using the argument `--use_tensorboard` allows you to track your models training and validation curves over time.
 
 Training a model without GPU has not been tested.
-
-### Pretrained models
-Due to ethical reasons the pretrained models are not made available publicly. \
-Once access has been granted to GMDB, the pretrained model weights can be requested as well.
-
-### Pretrained models
-Due to ethical reasons the pretrained models are not made available publicly. \
-Once access has been granted to GMDB, the pretrained model weights can be requested as well.
-
-The pretrained models by default are stored in a directory set by `--weight_dir` (default:`./saved_models/`). Further, 
-using the arguments `--model_a_path`, `--model_b_path` and `--model_c_path`, the paths within this directory need to be
-specified (default: uses all supplied model names). \
-When setting any of those to 'None' they will not be included in the ensemble.
-
 
 ### Encode photos
 With `python predict.py` you will encode all images in `--data` (default: `./data/cases_align`). This is quite free-form
@@ -258,17 +285,42 @@ Lastly, it is possible to save the encodings directly as a pickle of a DataFrame
 
 For machines without a GPU, please use `--no_cuda`.
 ```
-python .\predict.py \
-  --model_a_path s1_glint360k_r50_512d_gmdb__v1.1.0_bs64_size112_channels3_last_model.pth \
-  --model_b_path s2_glint360k_r100_512d_gmdb__v1.1.0_bs128_size112_channels3_last_model.pth \
-  --save_as_pickle \
-  --data ../data/GestaltMatcherDB/v1.1.0/gmdb_align/ \ 
-  --save_dir ./data/gallery_encodings/ \
+# encode the whole GMDB dataset to obtain the gallery encodings
+python predict.py 
+  --model_a_path s1_glint360k_r50_512d_gmdb__v1.1.0_bs64_size112_channels3_last_model.pth 
+  --model_b_path s2_glint360k_r100_512d_gmdb__v1.1.0_bs128_size112_channels3_last_model.pth 
+  --save_as_pickle 
+  --data ../data/GestaltMatcherDB/v1.1.0/gmdb_align/ 
+  --save_dir ./data/gallery_encodings/ 
   --output_name GMDB_gallery_encodings_v1.1.0.pkl
+  
+ # encode the image you want to test
+ # the output will be in ./data/demo_test/test_encodings_v1.1.0.pkl
+ python predict.py 
+  --model_a_path s1_glint360k_r50_512d_gmdb__v1.1.0_bs64_size112_channels3_last_model.pth 
+  --model_b_path s2_glint360k_r100_512d_gmdb__v1.1.0_bs128_size112_channels3_last_model.pth 
+  --save_as_pickle 
+  --data demo_images/cdls_demo_aligned.jpg 
+  --save_dir ./data/demo_test/ 
+  --output_name test_encodings_v1.1.0.pkl
 ```
 
+There are 12 encodings per image because there are three models, and test-time augmentation including flip and
+color/grey. Please find more detail in our paper [Hustinx et al., WACV 2023](https://openaccess.thecvf.com/content/WACV2023/papers/Hustinx_Improving_Deep_Facial_Phenotyping_for_Ultra-Rare_Disorder_Verification_Using_Model_WACV_2023_paper.pdf). 
+
+The structure of the file is shown below.
+
+| Field                       | Value                                                                    |
+| -------------------- |--------------------------------------------------------------------------|
+| `img_name`          | `cdls_demo_aligned.jpg`                                                  |
+| `model`             | `m0, m1, or m2`                                                          |
+| `flip`              | `0 or 1`                                                                 |
+| `gray`              | `0 or 1`                                                                 |
+| `class_conf`        | `[19.153106689453125, -1.1602606773376465, ...]` (truncated for brevity) |
+| `representations` | `[1.054652452468872, 0.4113105237483978, ...]` (truncated for brevity)   |
+
 ### Evaluate on the whole dataset
-The following result is evaluating the v1.1.0 GMDB dataset.
+The following result is evaluating the whole v1.1.0 GMDB dataset.
 ```
 python .\evaluate_ensemble.py
 
@@ -311,6 +363,13 @@ generated and saved when running the training. However, it is included in the di
 `lookup_table_gmdb.txt` and is the default path of `--lut` (the argument used to set it).
 
 For the output file, please indicate the directory with `--output_dir` and the output filename with `--output_file`.
+
+```
+python evaluate.py --metadata_dir ../data/GestaltMatcherDB/v1.1.0/gmdb_metadata
+--gallery_input ./data/gallery_encodings/GMDB_gallery_encodings_v1.1.0.pkl
+--output_dir demo_output --output_file demo_results.json
+--case_input ./data/demo_test/test_encodings_v1.1.0.pkl --top_n all
+```
 
 ## Contact
 Tzung-Chien Hsieh

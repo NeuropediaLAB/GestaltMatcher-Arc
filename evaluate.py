@@ -111,7 +111,7 @@ args = parse_args()
 
 # Used to belong to evaluate.py - keeping a backup here in case we need it ...
 def evaluate(all_df, case_df, gallery='all', metadata_dir=''):
-    synds = pd.read_csv(os.path.join(metadata_dir, 'gmdb_syndromes_v1.0.3.tsv'),
+    synds = pd.read_csv(os.path.join(metadata_dir, 'gmdb_syndromes_v1.1.0.tsv'),
                         delimiter='\t',
                         usecols=['syndrome_id', 'syndrome_name'])
 
@@ -121,11 +121,11 @@ def evaluate(all_df, case_df, gallery='all', metadata_dir=''):
         synd_lookup_table = np.array(json.loads(line))
 
     # Get gallery set info
-    gallery_df1 = pd.read_csv(os.path.join(metadata_dir, 'gmdb_frequent_gallery_images_v1.0.3.csv'))
-    gallery_df2 = pd.read_csv(os.path.join(metadata_dir, 'gmdb_rare_gallery_images_v1.0.3.csv'))\
+    gallery_df1 = pd.read_csv(os.path.join(metadata_dir, 'gmdb_frequent_gallery_images_v1.1.0.csv'))
+    gallery_df2 = pd.read_csv(os.path.join(metadata_dir, 'gmdb_rare_gallery_images_v1.1.0.csv'))\
         .drop("split", axis=1).drop_duplicates()    # remove 'split'-column and then remove duplicates
     if gallery in ['all', 'unified', 'freq+rare', 'rare+freq']:
-        gallery_df = gallery_df1.append(gallery_df2)
+        gallery_df = pd.concat([gallery_df1, gallery_df2])
     elif gallery == 'freq':
         gallery_df = gallery_df1
     elif gallery == 'rare':
@@ -190,7 +190,7 @@ def get_first_synds(ranked_synd_ids, ranked_mean_dists, ranked_img_ids, ranked_s
          range(len(ranked_synd_ids))])  # Expected shape: [num_images_test, num_images_gallery]
 
     if verbose:
-        synds = pd.read_csv(os.path.join(args.metadata_dir, 'gmdb_syndromes_v1.0.3.tsv'),
+        synds = pd.read_csv(os.path.join(args.metadata_dir, 'gmdb_syndromes_v1.1.0.tsv'),
                             delimiter='\t',
                             usecols=['syndrome_id', 'syndrome_name'])
         for aa in ranked_img_ids:
@@ -212,7 +212,7 @@ def get_first_subject(ranked_synd_ids, ranked_mean_dists, ranked_img_ids, ranked
                           range(len(ranked_subject_ids))])  # Expected shape: [num_images_test, num_images_gallery]
 
     if verbose:
-        synds = pd.read_csv(os.path.join(args.metadata_dir, 'gmdb_syndromes_v1.0.3.tsv'),
+        synds = pd.read_csv(os.path.join(args.metadata_dir, 'gmdb_syndromes_v1.1.0.tsv'),
                             delimiter='\t',
                             usecols=['syndrome_id', 'syndrome_name'])
         for aa in ranked_img_ids:
@@ -312,7 +312,7 @@ def main():
 
     # Location of the GMDB meta data
     if args.metadata_dir == '':
-        args.metadata_dir = os.path.join('..', 'data', 'GestaltMatcherDB', 'v1.0.3', 'gmdb_metadata')
+        args.metadata_dir = os.path.join('..', 'data', 'GestaltMatcherDB', 'v1.1.0', 'gmdb_metadata')
 
     # Load and combine all encodings
     # args.separate_files_gallery
@@ -339,7 +339,7 @@ def main():
     evaluate_finished_time = time.time()
     # TEST PRINT DISORDER NAMES
     stuff = all_ranks[0,0,:n]
-    synds = pd.read_csv(os.path.join(args.metadata_dir, 'gmdb_syndromes_v1.0.3.tsv'),
+    synds = pd.read_csv(os.path.join(args.metadata_dir, 'gmdb_syndromes_v1.1.0.tsv'),
                         delimiter='\t',
                         usecols=['syndrome_id', 'syndrome_name', 'OMIM'])
     if not args.silence:
