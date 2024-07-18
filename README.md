@@ -1,5 +1,6 @@
 # GestaltMatcher-Arc: Service
-This repository contains all the code for our GestaltMatcher service.
+This repository contains all the code for our GestaltMatcher service and the training of GestaltMatcher-Arc.
+For more details, please check our publications in the [references section](#references).
 This repo also contains snippets of code from insightface (https://github.com/deepinsight/insightface); both from their 
 alignment process and their RetinaFace detector.
 
@@ -71,7 +72,7 @@ async def predict_endpoint(username: Annotated[str, Depends(get_current_username
 ### Send request
 You can send a single image or multiple images in a folder to the api via **send_image_api.py**.
 ```
-python send_image_api.py --case_input demo_images/cdls_demo.png --otuput_dir output
+python send_image_api.py --case_input demo_images/cdls_demo.png --output_dir output
 
 # arguments:
 --case_input :input single file or dir containing multiple images
@@ -370,6 +371,11 @@ python evaluate.py --metadata_dir ../data/GestaltMatcherDB/v1.1.0/gmdb_metadata
 --output_dir demo_output --output_file demo_results.json
 --case_input ./data/demo_test/test_encodings_v1.1.0.pkl --top_n all
 ```
+
+## References
+1. **GestaltMatcher**: Hsieh, T.-C. et al. (2022). GestaltMatcher facilitates rare disease matching using facial phenotype descriptors. Nature Genetics, 54(3), 349-357. [https://www.nature.com/articles/s41588-021-01010-x](https://www.nature.com/articles/s41588-021-01010-x)
+2. **GestaltMatcher-Arc**: Hustinx, A. et al. (2023). Improving deep facial phenotyping for ultra-rare disorder verification using model ensembles. 2023 IEEE/CVF Winter Conference on Applications of Computer Vision (WACV). doi:[10.1109/wacv56688.2023.00499](https://openaccess.thecvf.com/content/WACV2023/papers/Hustinx_Improving_Deep_Facial_Phenotyping_for_Ultra-Rare_Disorder_Verification_Using_Model_WACV_2023_paper.pdf)
+3. **GestaltMatcher Database**: Lesmann, H. et al. (2024). GestaltMatcher Database - A global reference for facial phenotypic variability in rare human diseases. medRxiv. doi:[10.1101/2023.06.06.23290887](https://www.medrxiv.org/content/10.1101/2023.06.06.23290887v3)
 
 ## Contact
 Tzung-Chien Hsieh
