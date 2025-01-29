@@ -45,8 +45,12 @@ arcface_src = np.expand_dims(arcface_src, axis=0)
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Crop and align faces')
-    parser.add_argument('--no_cuda', action='store_true', default=False,
-                        help='disables CUDA training')
+
+    parser.add_argument('--device', type=str, choices=["cpu", "cuda", "mps"], default="cpu",
+                        help='device to use for computation. (Options: "cpu", "cuda", "mps") Default is "cpu".')
+
+    #parser.add_argument('--no_cuda', action='store_true', default=False,
+    #                   help='disables CUDA training')
 
     parser.add_argument('--seed', type=int, default=11, metavar='S',
                         help='random seed (default: 11)')
@@ -304,7 +308,22 @@ def align(img, coords, img_name, save_img=True, save_dir=''):
 
 def main():
     # Training/cuda settings
-    use_cuda = not args.no_cuda and torch.cuda.is_available()
+    use_cuda = False
+
+    if args.device == "cpu":
+        print("Using CPU.")
+        device = torch.device("cpu")
+    else:
+        if args.device == "cuda" and not torch.cuda.is_available():
+            print("CUDA is not available. Falling back to CPU.")
+            device = torch.device("cpu")
+        elif args.device == "mps" and not torch.backends.mps.is_available():
+            print("MPS is not available. Falling back to CPU.")
+            device = torch.device("cpu")
+        else:
+            device = torch.device(args.device)
+            use_cuda = True
+
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
     random.seed(args.seed)
@@ -342,7 +361,7 @@ def main():
     #print(f"{img_paths=}")
 
     # Load model
-    def load_model(model, pretrained_path, load_to_cpu):
+    def load_model(model, pretrained_path, load_to_cuda):
         def remove_prefix(state_dict, prefix):
             ''' Old style model is stored with all names of parameters sharing common prefix 'module.' '''
             print('\tremove prefix \'{}\''.format(prefix))
@@ -361,11 +380,17 @@ def main():
             return True
 
         print('Loading pretrained model from {}'.format(pretrained_path))
-        if load_to_cpu:
+
+
+        if not load_to_cuda:
             pretrained_dict = torch.load(pretrained_path, map_location=lambda storage, loc: storage)
         else:
-            device = torch.cuda.current_device()
-            pretrained_dict = torch.load(pretrained_path, map_location=lambda storage, loc: storage.cuda(device))
+            if args.device == "cuda":
+                device = torch.cuda.current_device()
+                pretrained_dict = torch.load(pretrained_path, map_location=lambda storage, loc: storage.cuda(device))
+            else:
+                device = torch.device("mps")
+                pretrained_dict = torch.load(pretrained_path, map_location=device)
         if "state_dict" in pretrained_dict.keys():
             pretrained_dict = remove_prefix(pretrained_dict['state_dict'], 'module.')
         else:
@@ -374,12 +399,12 @@ def main():
         model.load_state_dict(pretrained_dict, strict=False)
         return model
     net = RetinaFace(cfg=cfg, phase='test')
-    net = load_model(net, args.cropper_model, args.no_cuda)
+    net = load_model(net, args.cropper_model, use_cuda)
     net.eval()
     print('Finished loading model!')
 
     cudnn.benchmark = True
-    device = torch.device("cpu" if args.no_cuda else "cuda")
+
     net = net.to(device)
 
     tic = time.time()

@@ -32,12 +32,12 @@ Save the following files in ./saved_models/
 **Metadata**
 
 Save the following file in ./data/
-1. image_gene_and_syndrome_metadata_v1.1.0.p (image metadata)
+1. image_gene_and_syndrome_metadata_20082024.p (image metadata)
 
 **Encodings**
 
 Save the following file in ./data/gallery_encodings/
-1. GMDB_gallery_encodings_v1.1.0.pkl (image encodings)
+1. GMDB_gallery_encodings_20082024_v1.1.0_service.pkl (image encodings)
 
 **Config file**
 

@@ -30,8 +30,8 @@ def parse_args():
                         help='learning rate (default: 0.005)')
     parser.add_argument('--seed', type=int, default=11, metavar='S',
                         help='random seed (default: 11)')
-    parser.add_argument('--no_cuda', action='store_true', default=False,
-                        help='disables CUDA training')
+    parser.add_argument('--device', type=str, choices=["cpu", "cuda", "mps"], default="cpu",
+                        help='device to use for computation. (Options: "cpu", "cuda", "mps") Default is "cpu".')
     parser.add_argument('--log_interval', type=int, default=1000,
                         help='how many images (not batches) to wait before logging training status')
     parser.add_argument('--val_interval', type=int, default=10000,
@@ -243,8 +243,22 @@ def main():
     # Training settings
     args = parse_args()
 
-    use_cuda = not args.no_cuda and torch.cuda.is_available()
-    device = torch.device("cuda" if use_cuda else "cpu")
+    use_cuda = False
+
+    # Training/cuda settings
+    if args.device == "cpu":
+        device = torch.device("cpu")
+    else:
+        if args.device == "cuda" and not torch.cuda.is_available():
+            print("CUDA is not available. Falling back to CPU.")
+            device = torch.device("cpu")
+        elif args.device == "mps" and not torch.backends.mps.is_available():
+            print("MPS is not available. Falling back to CPU.")
+            device = torch.device("cpu")
+        else:
+
+            use_cuda = True
+
     print(f"Using {'GPU.' if use_cuda else 'CPU, as was explicitly requested, or as GPU is not available.'}")
 
     # Seed everything

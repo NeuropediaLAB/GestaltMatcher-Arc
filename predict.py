@@ -56,8 +56,9 @@ def preprocess(img, img_size=112, gray=False, flip=False):
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Encode aligned images using GestaltMatcher-Arc ensemble')
-    parser.add_argument('--no_cuda', action='store_true', default=False,
-                        help='disables CUDA training')
+
+    parser.add_argument('--device', type=str, choices=["cpu", "cuda", "mps"], default="cpu",
+                        help='device to use for computation. (Options: "cpu", "cuda", "mps") Default is "cpu".')
 
     parser.add_argument('--seed', type=int, default=11, metavar='S',
                         help='random seed (default: 11)')
@@ -74,10 +75,10 @@ def parse_args():
                         help='Path to the directory containing the model weights. Default: \'saved_models\'')
 
     parser.add_argument('--model_a_path', dest='model_a_path',
-                        default='s1_glint360k_r50_512d_gmdb__v1.0.3_bs64_size112_channels3_last_model.pth',
+                        default='s1_glint360k_r50_512d_gmdb__v1.1.0_bs64_size112_channels3_last_model.pth',
                         help='Name of the file containing the weights for model A.')
     parser.add_argument('--model_b_path', dest='model_b_path',
-                        default='s2_glint360k_r100_512d_gmdb__v1.0.3_bs128_size112_channels3_last_model.pth',
+                        default='s2_glint360k_r100_512d_gmdb__v1.1.0_bs128_size112_channels3_last_model.pth',
                         help='Name of the file containing the weights for model B.')
     parser.add_argument('--model_c_path', dest='model_c_path', default='glint360k_r100.onnx',
                         help='Name of the file containing the weights for model C.')
@@ -173,18 +174,38 @@ def predict(models, device, img_paths, args):
             f.flush()
             f.close()
 
-    print(f"Predictions took {(toc - tick):.2f}s{'.' if len(img_paths) == 1 else f' (~{((toc - tick)/len(img_paths)):.2f}s per image).'}")
+    if len(img_paths) == 0:
+        print(f"Predictions took {(toc - tick):.2f}s. No images were processed!!!!!!!!!!!")
+    else:
+        print(f"Predictions took {(toc - tick):.2f}s (~{((toc - tick) / len(img_paths)):.2f}s per image).")
+
+    #print(f"Predictions took {(toc - tick):.2f}s{'.' if len(img_paths) == 1 else f' (~{((toc - tick)/len(img_paths)):.2f}s per image).'}")
     #model.train()
     return
 
 
 def main():
     # Training/cuda settings
-    use_cuda = not args.no_cuda and torch.cuda.is_available()
+
+    use_cuda = False
+
+    if args.device == "cpu":
+        print("Using CPU.")
+        device = torch.device("cpu")
+    else:
+        if args.device == "cuda" and not torch.cuda.is_available():
+            print("CUDA is not available. Falling back to CPU.")
+            device = torch.device("cpu")
+        elif args.device == "mps" and not torch.backends.mps.is_available():
+            print("MPS is not available. Falling back to CPU.")
+            device = torch.device("cpu")
+        else:
+            device = torch.device(args.device)
+            use_cuda = True
+
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
     random.seed(args.seed)
-    device = torch.device("cuda" if use_cuda else "cpu")
     
     if use_cuda:
         torch.backends.cudnn.deterministic = True
@@ -261,7 +282,7 @@ def main():
             model3 = get_model(os.path.join(args.weight_dir, "glint360k_r100.pth"), device=device)
         model3.eval()
         models.append(model3)
-
+    print(device)
     predict(models, device, aligned_img_paths, args)
 
 
