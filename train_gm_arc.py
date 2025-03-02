@@ -256,7 +256,7 @@ def main():
             print("MPS is not available. Falling back to CPU.")
             device = torch.device("cpu")
         else:
-
+            device = torch.device(args.device)
             use_cuda = True
 
     print(f"Using {'GPU.' if use_cuda else 'CPU, as was explicitly requested, or as GPU is not available.'}")
