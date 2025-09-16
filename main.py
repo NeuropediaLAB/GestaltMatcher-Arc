@@ -10,8 +10,9 @@ from contextlib import asynccontextmanager
 from lib.utils_functions import readb64, encodeb64
 from datetime import datetime
 
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, Request, FastAPI, HTTPException, status, File, UploadFile
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from typing import Annotated
 
 security = HTTPBasic()
 
@@ -132,6 +133,74 @@ async def crop_endpoint(image: Img):
     #aligned_img_bytes = aligned_img.tobytes()
     return {"crop": base64.b64encode(img_en[1])}
 
+
+@app.post("/predict_file")
+async def predict_file_endpoint(
+    request: Request,  # <-- move this before defaulted params
+    username: Annotated[str, Depends(get_current_username)],
+    file: UploadFile = File(...),
+):
+    # 1) Content-Type proves transport
+    ct = request.headers.get("content-type", "")
+    print("Content-Type:", ct)  # expect: multipart/form-data; boundary=...
+
+    # 2) Size/filename proves it's a real uploaded file
+    contents = await file.read()
+    print("Uploaded:", file.filename, "bytes:", len(contents))
+
+    img_array = cv2.imdecode(np.frombuffer(contents, np.uint8), cv2.IMREAD_COLOR)
+
+    start_time = time.time()
+    timestamp = time.time()
+    datetime_obj = datetime.fromtimestamp(timestamp)
+    formatted_time = datetime_obj.strftime('%Y-%m-%d %H:%M:%S')
+    print("Formatted Time:", formatted_time)
+
+    try:
+        aligned_img = face_align_crop(_cropper_model, img_array, _device)
+    except Exception:
+        return {"message": "Face alignment error."}
+    align_time = time.time()
+    try:
+        encoding = encode(_models, 'cpu', aligned_img, False, False)
+    except Exception:
+        return {"message": "Encoding error."}
+    encode_time = time.time()
+    try:
+        result = predict(
+            encoding,
+            _gallery_df,
+            _images_synds_dict,
+            _images_genes_dict,
+            _genes_metadata_dict,
+            _synds_metadata_dict
+        )
+    except Exception:
+        return {"message": "Evaluation error."}
+    finished_time = time.time()
+
+    print('Crop: {:.2f}s'.format(align_time-start_time))
+    print('Encode: {:.2f}s'.format(encode_time-align_time))
+    print('Predict: {:.2f}s'.format(finished_time-encode_time))
+    print('Total: {:.2f}s'.format(finished_time-start_time))
+    return result
+
+
+@app.post("/encode_file")
+async def encode_file_endpoint(file: UploadFile = File(...)):
+    contents = await file.read()
+    img_array = cv2.imdecode(np.frombuffer(contents, np.uint8), cv2.IMREAD_COLOR)
+    aligned_img = face_align_crop(_cropper_model, img_array, _device)
+    return {"encodings": encode(_models, 'cpu', aligned_img).to_dict()}
+
+
+@app.post("/crop_file")
+async def crop_file_endpoint(file: UploadFile = File(...)):
+    contents = await file.read()
+    img_array = cv2.imdecode(np.frombuffer(contents, np.uint8), cv2.IMREAD_COLOR)
+    aligned_img = face_align_crop(_cropper_model, img_array, _device)
+    img_en = cv2.imencode(".png", aligned_img)
+    return {"crop": base64.b64encode(img_en[1])}
 
 @app.get("/status")
 async def status_endpoint():
