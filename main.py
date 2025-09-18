@@ -1,6 +1,8 @@
 import base64
 import pickle
 import secrets
+import httpx
+import numpy as np
 from typing import Annotated
 from lib.encode import *
 from lib.evaluation import *
@@ -10,6 +12,7 @@ from contextlib import asynccontextmanager
 from lib.utils_functions import readb64, encodeb64
 from datetime import datetime
 
+from pydantic import BaseModel, HttpUrl
 from fastapi import Depends, Request, FastAPI, HTTPException, status, File, UploadFile
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from typing import Annotated
@@ -201,6 +204,72 @@ async def crop_file_endpoint(file: UploadFile = File(...)):
     aligned_img = face_align_crop(_cropper_model, img_array, _device)
     img_en = cv2.imencode(".png", aligned_img)
     return {"crop": base64.b64encode(img_en[1])}
+
+import re, html
+from urllib.parse import urlparse, parse_qs
+
+def normalize_drive_url(u: str) -> str:
+    """Turn Google Drive viewer/share links into a direct-download URL."""
+    p = urlparse(u)
+    if p.netloc in ("drive.google.com", "docs.google.com"):
+        # /file/d/<id>/view
+        m = re.search(r"/file/d/([^/]+)", p.path)
+        if m:
+            return f"https://drive.google.com/uc?export=download&id={m.group(1)}"
+        # ?id=<id> variants
+        qs = parse_qs(p.query)
+        if "id" in qs and qs["id"]:
+            return f"https://drive.google.com/uc?export=download&id={qs['id'][0]}"
+    return u
+
+
+class ImgURL(BaseModel):
+    url: HttpUrl  # e.g., https://drive.google.com/uc?export=download&id=...
+
+@app.post("/predict_url")
+async def predict_url_endpoint(
+    username: Annotated[str, Depends(get_current_username)],
+    payload: ImgURL,
+):
+    url = normalize_drive_url(str(payload.url))
+
+    async with httpx.AsyncClient(follow_redirects=True, timeout=15) as client:
+        r = await client.get(url, headers={"User-Agent": "GM-API/1.0"})
+        # If Drive serves an interstitial HTML, try to follow the confirm link once
+        if "text/html" in r.headers.get("content-type","") and "confirm=" in r.text:
+            m = re.search(r'href="(/uc\?export=download[^"]*confirm=[^"&]+[^"]*)"', r.text)
+            if m:
+                confirm_url = "https://drive.google.com" + html.unescape(m.group(1))
+                r = await client.get(confirm_url, headers={"User-Agent": "GM-API/1.0"})
+        r.raise_for_status()
+        content = r.content
+
+    if len(content) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Image too large")
+
+    img = cv2.imdecode(np.frombuffer(content, np.uint8), cv2.IMREAD_COLOR)
+    if img is None:
+        raise HTTPException(status_code=422, detail="Could not decode image from URL")
+
+    # 3) Your existing pipeline (unchanged)
+    start_time = time.time()
+    try:
+        aligned_img = face_align_crop(_cropper_model, img, _device)
+        encoding = encode(_models, 'cpu', aligned_img, False, False)
+        result = predict(
+            encoding,
+            _gallery_df,
+            _images_synds_dict,
+            _images_genes_dict,
+            _genes_metadata_dict,
+            _synds_metadata_dict
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Processing error: {e}")
+
+    return result
+
+
 
 @app.get("/status")
 async def status_endpoint():
