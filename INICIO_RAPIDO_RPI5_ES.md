@@ -14,6 +14,8 @@ echo "⚠️ Por favor, cierra sesión y vuelve a iniciar sesión, luego ejecuta
 | Acción | Comando |
 |--------|---------|
 | **Iniciar servicios** | `./start-rpi5.sh` o `docker compose up -d` |
+| **Iniciar (modelo 4GB)** | `docker compose -f docker-compose.4gb.yml up -d` |
+| **Iniciar (solo API)** | `docker compose -f docker-compose.api-only.yml up -d` |
 | **Detener servicios** | `docker compose down` |
 | **Ver registros** | `docker compose logs -f` |
 | **Reiniciar servicios** | `docker compose restart` |

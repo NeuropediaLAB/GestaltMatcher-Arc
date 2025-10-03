@@ -178,10 +178,18 @@ docker compose up -d
 ## Performance Optimization for Raspberry Pi 5
 
 ### Memory Management
-The docker-compose.yml is configured with 2GB memory limits per service. If you have the 4GB model and experience issues:
+The docker-compose.yml is configured with 2GB memory limits per service. If you have the 4GB model and experience issues, use the optimized configuration:
 
+```bash
+# Use the 4GB optimized configuration
+docker compose -f docker-compose.4gb.yml up -d
+
+# Or if you only need the API (no web interface)
+docker compose -f docker-compose.api-only.yml up -d
+```
+
+Alternatively, manually adjust in docker-compose.yml:
 ```yaml
-# In docker-compose.yml, adjust mem_limit:
 mem_limit: 1g  # Reduce to 1GB if needed
 ```
 

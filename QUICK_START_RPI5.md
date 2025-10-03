@@ -14,6 +14,8 @@ echo "⚠️ Please log out and log back in, then run: ./start-rpi5.sh"
 | Action | Command |
 |--------|---------|
 | **Start services** | `./start-rpi5.sh` or `docker compose up -d` |
+| **Start (4GB model)** | `docker compose -f docker-compose.4gb.yml up -d` |
+| **Start (API only)** | `docker compose -f docker-compose.api-only.yml up -d` |
 | **Stop services** | `docker compose down` |
 | **View logs** | `docker compose logs -f` |
 | **Restart services** | `docker compose restart` |
