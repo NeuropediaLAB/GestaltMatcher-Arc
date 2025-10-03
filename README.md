@@ -4,8 +4,9 @@ For more details, please check our publications in the [references section](#ref
 This repo also contains snippets of code from insightface (https://github.com/deepinsight/insightface); both from their 
 alignment process and their RetinaFace detector.
 
-<p><strong>There are two parts in this repo:
+<p><strong>There are three parts in this repo:
 
+1. [🍓 Raspberry Pi 5 Installation](#raspberry-pi-5-installation) - Easy Docker deployment on Raspberry Pi 5 with web interface
 1. [GestaltMatcher REST api](#gestaltmatcher-rest-api) to run the prediction. You don't have to train the models.
 1. [Step-by-step setup](#step-by-step-setup), from preprocessing, training to evaluation.</strong></p>
 
@@ -15,6 +16,40 @@ of gallery encodings. The expected in- and output of each stage is described aft
 To simplify the process, we setup the GestaltMatcher REST api. You can build the docker image and host
 the service via REST api. Then, you can obtain the prediction results by sending the image through
 REST api. You can find more detail in [GestaltMatcher REST api](#gestaltmatcher-rest-api)
+
+## Raspberry Pi 5 Installation
+
+### 🍓 Quick Start for Raspberry Pi 5
+
+We provide optimized Docker setup for Raspberry Pi 5 with both **REST API** and **Web Interface (Streamlit)**:
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/xukrutdonut/GestaltMatcher-Arc.git
+cd GestaltMatcher-Arc
+
+# 2. Obtain model files (contact authors - see Requirements section)
+
+# 3. Configure credentials
+nano config.json  # Change default username/password
+
+# 4. Run the startup script
+./start-rpi5.sh
+```
+
+**Access the services:**
+- **Web Interface**: `http://<raspberry-pi-ip>:8501` - User-friendly upload and results viewing
+- **REST API**: `http://<raspberry-pi-ip>:5000` - For programmatic access
+- **API Documentation**: `http://<raspberry-pi-ip>:5000/docs` - Interactive API docs
+
+**Features:**
+- ✅ ARM64 optimized Docker images
+- ✅ Both REST API and Web Interface
+- ✅ Resource-optimized for Raspberry Pi 5
+- ✅ Easy deployment with Docker Compose
+- ✅ Automatic health checks and restart policies
+
+📖 **Complete guide**: See [README_RPI5.md](README_RPI5.md) for detailed installation, configuration, troubleshooting, and security recommendations.
 
 ## GestaltMatcher REST api
 We can host GestaltMatcher as a service via REST api. You can build the Docker image and host GM service in your local machine.
