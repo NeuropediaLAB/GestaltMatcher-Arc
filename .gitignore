@@ -137,10 +137,15 @@ dmypy.json
 # Tensorboard-stuff
 runs/
 
-# saved model weights
-saved_models/
+# saved model weights (but keep directory structure)
+saved_models/*
+!saved_models/.gitkeep
 
-# data
-data/
+# data (but keep directory structure)
+data/*
+!data/.gitkeep
+!data/gallery_encodings
+data/gallery_encodings/*
+!data/gallery_encodings/.gitkeep
 *json
 *csv

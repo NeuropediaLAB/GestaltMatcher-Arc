@@ -51,11 +51,13 @@ temp/
 Thumbs.db
 
 # Large data files (should be mounted as volumes)
-data/cases/*
-data/cases_align/*
-data/encodings/*
-!data/gallery_encodings/
-!data/image_gene_and_syndrome_metadata_20082024.p
+# Exclude runtime data directories but include model files
+data/cases
+data/cases_align
+data/encodings
+# Include required model data (when present)
+!data/gallery_encodings
+!data/*.p
 
 # Other dockerfiles
 Dockerfile
