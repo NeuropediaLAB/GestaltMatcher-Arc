@@ -1,0 +1,64 @@
+# Git files
+.git
+.gitignore
+.github
+
+# Python cache
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info
+dist/
+build/
+*.egg
+
+# Virtual environments
+env/
+venv/
+ENV/
+env_gm/
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Documentation
+*.md
+!README.md
+LICENSE*
+
+# Test files
+test_*.py
+*_test.py
+
+# Jupyter notebooks
+*.ipynb
+.ipynb_checkpoints
+
+# Output and temporary files
+output/
+tmp/
+temp/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Large data files (should be mounted as volumes)
+data/cases/*
+data/cases_align/*
+data/encodings/*
+!data/gallery_encodings/
+!data/image_gene_and_syndrome_metadata_20082024.p
+
+# Other dockerfiles
+Dockerfile
+Dockerfile.*
+!Dockerfile.rpi5
+!Dockerfile.streamlit

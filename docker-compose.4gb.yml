@@ -1,0 +1,56 @@
+# Docker Compose configuration optimized for Raspberry Pi 5 with 4GB RAM
+# Use this file if you're experiencing memory issues with the default configuration
+# 
+# Usage: docker compose -f docker-compose.4gb.yml up -d
+
+services:
+  # GestaltMatcher REST API Service
+  gm-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.rpi5
+    container_name: gestaltmatcher-api
+    ports:
+      - "5000:5000"
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./config.json:/app/config.json
+      - ./output:/app/output
+    restart: unless-stopped
+    networks:
+      - gestaltmatcher-network
+    mem_limit: 1.5g  # Reduced from 2g for 4GB model
+    cpus: 1.5        # Reduced from 2.0 to leave resources for system
+
+  # GestaltMatcher Web Interface (Streamlit)
+  # Optional: Comment out this section if you only need the API
+  gm-web:
+    build:
+      context: .
+      dockerfile: Dockerfile.streamlit
+    container_name: gestaltmatcher-web
+    ports:
+      - "8501:8501"
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./config.json:/app/config.json
+      - ./data/cases:/app/data/cases
+      - ./data/cases_align:/app/data/cases_align
+      - ./data/encodings:/app/data/encodings
+      - ./output:/app/output
+    restart: unless-stopped
+    networks:
+      - gestaltmatcher-network
+    mem_limit: 1g    # Reduced from 2g
+    cpus: 1.5        # Reduced from 2.0
+    depends_on:
+      - gm-api
+
+networks:
+  gestaltmatcher-network:
+    driver: bridge
+
+volumes:
+  output:

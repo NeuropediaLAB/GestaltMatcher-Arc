@@ -1,0 +1,31 @@
+# Docker Compose configuration for API only (without web interface)
+# Use this if you only need the REST API and want to conserve resources
+# 
+# Usage: docker compose -f docker-compose.api-only.yml up -d
+
+services:
+  # GestaltMatcher REST API Service
+  gm-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.rpi5
+    container_name: gestaltmatcher-api
+    ports:
+      - "5000:5000"
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./config.json:/app/config.json
+      - ./output:/app/output
+    restart: unless-stopped
+    networks:
+      - gestaltmatcher-network
+    mem_limit: 3g    # Can use more RAM when only running API
+    cpus: 3.0        # Can use more CPU cores
+
+networks:
+  gestaltmatcher-network:
+    driver: bridge
+
+volumes:
+  output:
