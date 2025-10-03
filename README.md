@@ -49,7 +49,33 @@ nano config.json  # Change default username/password
 - ✅ Easy deployment with Docker Compose
 - ✅ Automatic health checks and restart policies
 
-📖 **Complete guide**: See [README_RPI5.md](README_RPI5.md) for detailed installation, configuration, troubleshooting, and security recommendations.
+**Architecture:**
+```
+┌─────────────────────────────────────────────┐
+│         Raspberry Pi 5                      │
+│                                             │
+│  ┌─────────────────┐   ┌─────────────────┐ │
+│  │   Web Interface │   │    REST API     │ │
+│  │   (Streamlit)   │   │   (FastAPI)     │ │
+│  │   Port: 8501    │   │   Port: 5000    │ │
+│  └─────────────────┘   └─────────────────┘ │
+│           │                     │           │
+│           └──────────┬──────────┘           │
+│                      │                      │
+│         ┌────────────▼──────────┐          │
+│         │  Models & Gallery DB  │          │
+│         │  - Face alignment     │          │
+│         │  - Encoding models    │          │
+│         │  - Gallery encodings  │          │
+│         └───────────────────────┘          │
+└─────────────────────────────────────────────┘
+```
+
+📖 **Complete guides**: 
+- [README_RPI5.md](README_RPI5.md) - Full guide in English
+- [README_RPI5_ES.md](README_RPI5_ES.md) - Guía completa en Español
+- [QUICK_START_RPI5.md](QUICK_START_RPI5.md) - Quick reference card
+- [INICIO_RAPIDO_RPI5_ES.md](INICIO_RAPIDO_RPI5_ES.md) - Referencia rápida en Español
 
 ## GestaltMatcher REST api
 We can host GestaltMatcher as a service via REST api. You can build the Docker image and host GM service in your local machine.
